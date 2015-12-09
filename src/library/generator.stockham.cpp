@@ -21,6 +21,86 @@
 #include <list>
 #include "action.h"
 
+/*
+ * Improve accuracy by reducing x to range [0..1/8]
+ * before multiplication by 2 * PI.
+ */
+#define K2PI 6.2831853071795864769252867665590057683943388
+#define m2pi(m, n) ((K2PI * (m)) / (n))
+static void ap_sincos(int m, int n, double * si, double * co)
+{
+        double s,c,theta;
+        int n14,n24,n34,n44;
+        int m14,m44;
+        int n18,n28,n38,n48,n58,n68,n78;
+        int m88;
+
+        n14 = n;
+        n24 = n14 + n14;
+        n34 = n14 + n24;
+        n44 = n24 + n24;
+
+        m14 = m;
+        m44 = m14 + m14;
+        m44 = m44 + m44;
+
+        n18 = n;
+        n28 = n18 + n18;
+        n38 = n18 + n28;
+        n48 = n28 + n28;
+        n58 = n28 + n38;
+        n68 = n38 + n38;
+        n78 = n38 + n48;
+
+        m88 = m + m;
+        m88 = m88 + m88;
+        m88 = m88 + m88;
+
+        if(n18 > m88)
+        {
+                theta = m2pi(m44,n44);
+                s = sin(theta);
+                c = cos(theta);
+        }
+        else if(n28 > m88)
+        {
+                theta = m2pi(n14-m44,n44);
+                s = cos(theta);
+                c = sin(theta);
+        } else if(n38 > m88)
+        {
+                theta = m2pi(m44-n14,n44);
+                s = cos(theta);
+                c = -sin(theta);
+        } else if(n48 > m88)
+        {
+                theta = m2pi(n24-m44,n44);
+                s = sin(theta);
+                c = -cos(theta);
+        } else if(n58 > m88)
+        {
+                theta = m2pi(m44-n24,n44);
+                s = -sin(theta);
+                c = -cos(theta);
+        } else if(n68 > m88)
+        {
+                theta = m2pi(n34-m44,n44);
+                s = -cos(theta);
+                c = -sin(theta);
+        } else if(n78 > m88)
+        {
+                theta = m2pi(m44-n34,n44);
+                s = -cos(theta);
+                c = sin(theta);
+        } else
+        {
+                theta = m2pi(n44-m44,n44);
+                s = -sin(theta);
+                c = cos(theta);
+        }
+        *si = s;
+        *co = c;
+}
 
 FFTGeneratedStockhamAction::FFTGeneratedStockhamAction(clfftPlanHandle plHandle, FFTPlan * plan, cl_command_queue queue, clfftStatus & err)
     : FFTStockhamAction(plHandle, plan, queue, err)
@@ -554,8 +634,12 @@ namespace StockhamGenerator
 
 					for(size_t j=1; j<radix; j++)
 					{
-						double c = cos(((double)j) * theta);
-						double s = sin(((double)j) * theta);
+						//double c = cos(((double)j) * theta);
+						//double s = sin(((double)j) * theta);
+
+                                                double c,s;
+                                                ap_sincos(k*j,L,&s,&c);
+                                                s = -s;
 
 						//if (fabs(c) < 1.0E-12)	c = 0.0;
 						//if (fabs(s) < 1.0E-12)	s = 0.0;
